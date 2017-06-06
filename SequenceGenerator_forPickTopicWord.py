@@ -77,7 +77,8 @@ class SequenceGenerator(BaseSequenceGenerator):
         substring in them.
 
     """
-    def __init__(self, readout,topicWordReadout,topic_vector_names, transition,topical_name,content_name,q_dim,q_name, attention=None,topical_attention=None,
+    def __init__(self, readout,topicWordReadout,topic_vector_names, transition,
+                 topical_name,content_name,q_dim,q_name, attention=None,topical_attention=None,
                  use_step_decay_cost=False,
                  use_doubly_stochastic=False, lambda_ds=0.001,
                  use_concentration_cost=False, lambda_ct=10,
@@ -101,17 +102,17 @@ class SequenceGenerator(BaseSequenceGenerator):
             transition = FakeAttentionRecurrent(transition,
                                                 name="with_fake_attention")
 
-        self.topicWordReadout=topicWordReadout;
-        self._topic_vector_names=topic_vector_names;
-        self.probPick=NDPickTargetProb();
-        self.sampleTarget=SelectTarget();
+        self.topicWordReadout=topicWordReadout
+        self._topic_vector_names=topic_vector_names
+        self.probPick=NDPickTargetProb()
+        self.sampleTarget=SelectTarget()
         #self._q_names=[q_name];
-        self.topical_name=topical_name;
-        self.content_name=content_name;
-        self._topical_context_names=['topical_attended','topical_attended_mask'];
+        self.topical_name=topical_name
+        self.content_name=content_name
+        self._topical_context_names=['topical_attended','topical_attended_mask']
         super(SequenceGenerator, self).__init__(
             readout, transition, **kwargs)
-        self.children+=[self.topicWordReadout,self.probPick,self.sampleTarget];
+        self.children+=[self.topicWordReadout,self.probPick,self.sampleTarget]
 
     def _push_allocation_config(self):
 
@@ -125,7 +126,7 @@ class SequenceGenerator(BaseSequenceGenerator):
         self.topicWordReadout.push_allocation_config()
 
     @application
-    def cost_matrix(self, application_call, outputs,tw_outputs, tw_binary,mask=None, **kwargs):
+    def cost_matrix(self, application_call, outputs,tw_outputs, tw_binary, mask=None, **kwargs):
         """Returns generation costs for output sequences.
 
         See Also
@@ -141,23 +142,24 @@ class SequenceGenerator(BaseSequenceGenerator):
         # masks in context are optional (e.g. `attended_mask`)
         contexts = dict_subset(kwargs, self._context_names, must_have=False)
         topical_word_contexts=dict_subset(kwargs, self._topical_context_names)
-        topical_embeddings=dict_subset(kwargs,[self.topical_name]);
-        content_embeddings=dict_subset(kwargs,[self.content_name]);
+        topical_embeddings=dict_subset(kwargs,[self.topical_name])
         #q=dict_subset(kwargs, self._q_names, must_have=True,pop=True);
         feedback = self.readout.feedback(outputs)
+        content_embeddings=dict_subset(kwargs,[self.content_name])
         inputs = self.fork.apply(feedback, as_dict=True)
 
         # Run the recurrent network
         results = self.transition.apply(
             mask=mask, return_initial_states=True, as_dict=True,
-            **dict_union(inputs, states, contexts,topical_word_contexts,topical_embeddings,content_embeddings))
+            **dict_union(inputs, states, contexts,topical_word_contexts,
+                         topical_embeddings,content_embeddings))
 
         # Separate the deliverables. The last states are discarded: they
         # are not used to predict any output symbol. The initial glimpses
         # are discarded because they are not used for prediction.
         # Remember, glimpses are computed _before_ output stage, states are
         # computed after.
-        states = {name: results[name][:-1] for name in self._state_names}
+        states = {name: results[name][:-1] for name in self._state_names}#si
         glimpses = {name: results[name][1:] for name in self._glimpse_names}
         glimpses_modified={'weighted_averages':glimpses['weighted_averages'],'weigths':glimpses['weights']}
 
@@ -172,15 +174,15 @@ class SequenceGenerator(BaseSequenceGenerator):
 
         #topicSumVec = dict_subset(kwargs, self._topic_vector_names, must_have=True);
         twReadouts=self.topicWordReadout.readout(feedback=feedback,**dict_union(states,glimpses_modified, contexts));
-        twExp=tensor.exp(twReadouts);
-        rwExp=tensor.exp(readouts);
-        Z=twExp.sum(keepdims=True,axis=2)+rwExp.sum(keepdims=True,axis=2);#remains uncertain,keepdims, and the # of axis
-        twExp/=Z;
-        rwExp/=Z;
-        twCost=self.probPick.apply(tw_outputs,twExp,extra_ndim=twExp.ndim - 2);
-        rwCost=self.probPick.apply(outputs,rwExp,extra_ndim=rwExp.ndim - 2);
-        totalCost=twCost*tw_binary+rwCost;
-        costs=-tensor.log(totalCost);
+        twExp=tensor.exp(twReadouts)
+        rwExp=tensor.exp(readouts)
+        Z=twExp.sum(keepdims=True,axis=2)+rwExp.sum(keepdims=True,axis=2)#remains uncertain,keepdims, and the # of axis
+        twExp/=Z
+        rwExp/=Z
+        twCost=self.probPick.apply(tw_outputs,twExp,extra_ndim=twExp.ndim - 2)#topic cost
+        rwCost=self.probPick.apply(outputs,rwExp,extra_ndim=rwExp.ndim - 2)#repose cost
+        totalCost=twCost*tw_binary+rwCost
+        costs=-tensor.log(totalCost)
 
         if self.use_doubly_stochastic:
             # Doubly stochastic cost

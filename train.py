@@ -1,3 +1,5 @@
+#! /usr/bin/env python2.7
+#coding=utf-8
 from __future__ import print_function
 
 import logging
@@ -48,9 +50,16 @@ def main(mode, config, use_bokeh=False):
 
     # Construct model
     logger.info('Building RNN encoder-decoder')
+    config['batch_size']=2
+    config['beam_size']=1
+    config['src_vocab_size']=30000
+    config['source_topic_vocab_size']=4496
+    config['trg_vocab_size']=30000
+    config['trg_topic_vocab_size']=config['source_topic_vocab_size']
     encoder = BidirectionalEncoder(
         config['src_vocab_size'], config['enc_embed'], config['enc_nhids'])
-    topical_transformer=topicalq_transformer(config['source_topic_vocab_size'],config['topical_embedding_dim'], config['enc_nhids'],config['topical_word_num'],config['batch_size']);
+    topical_transformer=topicalq_transformer(config['source_topic_vocab_size'],
+    config['topical_embedding_dim'], config['enc_nhids'],config['topical_word_num'],config['batch_size'])
     decoder = Decoder(vocab_size=config['trg_vocab_size'],
                       topicWord_size=config['trg_topic_vocab_size'],
                       embedding_dim=config['dec_embed'],
@@ -74,28 +83,28 @@ def main(mode, config, use_bokeh=False):
 
         # Create Theano variables
         logger.info('Creating theano variables')
-        source_sentence = tensor.lmatrix('source')
-        source_sentence_mask = tensor.matrix('source_mask')
-        target_sentence = tensor.lmatrix('target')
-        target_sentence_mask = tensor.matrix('target_mask')
-        target_topic_sentence=tensor.lmatrix('target_topic');
-        target_topic_binary_sentence=tensor.lmatrix('target_binary_topic');
-        #target_topic_sentence_mask=tensor.lmatrix('target_topic_mask');
-        sampling_input = tensor.lmatrix('input')
-        source_topical_word=tensor.lmatrix('source_topical')
-        source_topical_mask=tensor.matrix('source_topical_mask')
+        source_sentence = tensor.lmatrix('source')#输入x
+        source_sentence_mask = tensor.lmatrix('source_mask')#x_mask
+        target_sentence = tensor.lmatrix('target')#y
+        target_sentence_mask = tensor.lmatrix('target_mask')#y_mask
+        target_topic_sentence=tensor.lmatrix('target_topic')
+        target_topic_binary_sentence=tensor.lmatrix('target_binary_topic')
+        # target_topic_sentence_mask=tensor.lmatrix('target_topic_mask');
+        # sampling_input = tensor.lmatrix('input')
+        source_topical_word = tensor.lmatrix('source_topical')
+        source_topical_mask = tensor.lmatrix('source_topical_mask')
 
-        topic_embedding=topical_transformer.apply(source_topical_word);
+        topic_embedding = topical_transformer.apply(source_topical_word)#输入mlp
 
 
-        # Get training and development set streams
+        # 得到输入数据
         tr_stream = get_tr_stream_with_topic_target(**config)
         #dev_stream = get_dev_tr_stream_with_topic_target(**config)
 
         # Get cost of the model
-        representations = encoder.apply(source_sentence, source_sentence_mask)
-        tw_representation=topical_transformer.look_up.apply(source_topical_word.T);
-        content_embedding=representations[0,:,(representations.shape[2]/2):];
+        representations = encoder.apply(source_sentence, source_sentence_mask)#encoder
+        tw_representation = topical_transformer.look_up.apply(source_topical_word.T)
+        content_embedding = representations[0,:,(representations.shape[2]/2):]
         cost = decoder.cost(representations,
                             source_sentence_mask,
                             tw_representation,
@@ -104,19 +113,23 @@ def main(mode, config, use_bokeh=False):
                             target_sentence_mask,
                             target_topic_sentence,
                             target_topic_binary_sentence,
-                            topic_embedding,content_embedding)
+                            topic_embedding,
+                            content_embedding)
 
         logger.info('Creating computational graph')
         perplexity = tensor.exp(cost)
         perplexity.name = 'perplexity'
 
-        cg = ComputationGraph(cost)
+        cg = ComputationGraph(cost)#
         costs_computer = function([target_sentence,
                                    target_sentence_mask,
                                    source_sentence,
-                                   source_sentence_mask,source_topical_word,target_topic_sentence,target_topic_binary_sentence], (perplexity),on_unused_input='ignore')
+                                   source_sentence_mask,source_topical_word,source_topical_mask,
+                                   target_topic_sentence,target_topic_binary_sentence],
+                                  (perplexity),on_unused_input='ignore')
 
-        # Initialize model
+
+        # Initialize modelx
         logger.info('Initializing model')
         encoder.weights_init = decoder.weights_init = IsotropicGaussian(
             config['weight_scale'])
@@ -128,17 +141,18 @@ def main(mode, config, use_bokeh=False):
         encoder.initialize()
         decoder.initialize()
 
-        topical_transformer.weights_init=IsotropicGaussian(
-            config['weight_scale']);
-        topical_transformer.biases_init=Constant(0);
-        topical_transformer.push_allocation_config();#don't know whether the initialize is for
-        topical_transformer.look_up.weights_init=Orthogonal();
-        topical_transformer.transformer.weights_init=Orthogonal();
-        topical_transformer.initialize();
-        word_topical_embedding=cPickle.load(open(config['topical_embeddings'], 'rb'));
-        np_word_topical_embedding=numpy.array(word_topical_embedding,dtype='float32');
-        topical_transformer.look_up.W.set_value(np_word_topical_embedding);
-        topical_transformer.look_up.W.tag.role=[];
+        topical_transformer.weights_init = IsotropicGaussian(
+            config['weight_scale'])
+        topical_transformer.biases_init=Constant(0)
+        topical_transformer.push_allocation_config()#don't know whether the initialize is for
+        topical_transformer.look_up.weights_init=Orthogonal()
+        topical_transformer.transformer.weights_init=Orthogonal()
+        topical_transformer.initialize()
+        #加载已经训练好的词向量
+        # word_topical_embedding=cPickle.load(open(config['topical_embeddings'], 'rb'));
+        # np_word_topical_embedding=numpy.array(word_topical_embedding,dtype='float32');
+        # topical_transformer.look_up.W.set_value(np_word_topical_embedding);
+        topical_transformer.look_up.W.tag.role=[]
 
 
         # apply dropout for regularization
@@ -150,16 +164,17 @@ def main(mode, config, use_bokeh=False):
             cg = apply_dropout(cg, dropout_inputs, config['dropout'])
 
         # Apply weight noise for regularization
+        config['weight_noise_ff']=0.1
         if config['weight_noise_ff'] > 0.0:
             logger.info('Applying weight noise to ff layers')
-            enc_params = Selector(encoder.lookup).get_params().values()
-            enc_params += Selector(encoder.fwd_fork).get_params().values()
-            enc_params += Selector(encoder.back_fork).get_params().values()
+            enc_params = Selector(encoder.lookup).get_parameters().values()
+            enc_params += Selector(encoder.fwd_fork).get_parameters().values()
+            enc_params += Selector(encoder.back_fork).get_parameters().values()
             dec_params = Selector(
-                decoder.sequence_generator.readout).get_params().values()
+                decoder.sequence_generator.readout).get_parameters().values()
             dec_params += Selector(
-                decoder.sequence_generator.fork).get_params().values()
-            dec_params += Selector(decoder.state_init).get_params().values()
+                decoder.sequence_generator.fork).get_parameters().values()
+            # dec_params += Selector(decoder.state_init).get_parameters().values()
             cg = apply_noise(
                 cg, enc_params+dec_params, config['weight_noise_ff'])
 
@@ -180,11 +195,11 @@ def main(mode, config, use_bokeh=False):
         logger.info("Total number of parameters: {}"
                     .format(len(enc_dec_param_dict)))
 
-
         # Set up training model
         logger.info("Building model")
         training_model = Model(cost)
-
+        config['saveto']='/home/qinghua/pythonWork/qa/TA-Seq2Seq/model/'
+        config['model_name']='seq2seq_topic'
         # Set extensions
         logger.info("Initializing extensions")
         extensions = [
@@ -194,47 +209,6 @@ def main(mode, config, use_bokeh=False):
                           config['model_name'],
                           every_n_batches=config['save_freq'])
         ]
-
-        # # Set up beam search and sampling computation graphs if necessary
-        # if config['hook_samples'] >= 1 or config['bleu_script'] is not None:
-        #     logger.info("Building sampling model")
-        #     sampling_representation = encoder.apply(
-        #         sampling_input, tensor.ones(sampling_input.shape))
-        #     generated = decoder.generate(
-        #         sampling_input, sampling_representation)
-        #     search_model = Model(generated)
-        #     _, samples = VariableFilter(
-        #         bricks=[decoder.sequence_generator], name="outputs")(
-        #             ComputationGraph(generated[1]))
-        #
-        # # Add sampling
-        # if config['hook_samples'] >= 1:
-        #     logger.info("Building sampler")
-        #     extensions.append(
-        #         Sampler(model=search_model, data_stream=tr_stream,
-        #                 model_name=config['model_name'],
-        #                 hook_samples=config['hook_samples'],
-        #                 every_n_batches=config['sampling_freq'],
-        #                 src_vocab_size=config['src_vocab_size']))
-        #
-        # # Add early stopping based on bleu
-        # if False:
-        #     logger.info("Building bleu validator")
-        #     extensions.append(
-        #         BleuValidator(sampling_input, samples=samples, config=config,
-        #                       model=search_model, data_stream=dev_stream,
-        #                       normalize=config['normalized_bleu'],
-        #                       every_n_batches=config['bleu_val_freq'],
-        #                       n_best=3,
-        #                       track_n_models=6))
-        #
-        # logger.info("Building perplexity validator")
-        # extensions.append(
-        #         pplValidation( config=config,
-        #                 model=costs_computer, data_stream=dev_stream,
-        #                 model_name=config['model_name'],
-        #                 every_n_batches=config['sampling_freq']))
-
 
         # Plot cost in bokeh if necessary
         if use_bokeh and BOKEH_AVAILABLE:
@@ -246,7 +220,7 @@ def main(mode, config, use_bokeh=False):
         if config['reload']:
             extensions.append(LoadNMT(config['saveto']))
 
-        initial_learning_rate = config['initial_learning_rate']
+        initial_learning_rate = config['initial_learning_rate']#1.0
         log_path = os.path.join(config['saveto'], 'log')
         if config['reload'] and os.path.exists(log_path):
             with open(log_path, 'rb') as source:
@@ -257,8 +231,19 @@ def main(mode, config, use_bokeh=False):
 
         # Set up training algorithm
         logger.info("Initializing training algorithm")
+        parameters=cg.parameters
+        i=0
+        parameters1=[]
+        for pram in parameters:
+            if i==25 or i==26 or i==20 or i==34:
+                i+=1
+                continue
+            else:
+                parameters1.append(pram)
+                i+=1
+
         algorithm = GradientDescent(
-            cost=cost, parameters=cg.parameters,
+            cost=cost, parameters=parameters1,
             step_rule=CompositeRule([Scale(initial_learning_rate),
                                      StepClipping(config['step_clipping']),
                                      eval(config['step_rule'])()]),
@@ -287,10 +272,10 @@ def main(mode, config, use_bokeh=False):
         # Initialize main loop
         logger.info("Initializing main loop")
         main_loop = MainLoop(
-            model=training_model,
-            algorithm=algorithm,
-            data_stream=tr_stream,
-            extensions=extensions
+            model=training_model,#模型
+            algorithm=algorithm,#梯度
+            data_stream=tr_stream,#输入
+            extensions=extensions#模型保存,学习率等参数
         )
 
         # Train!
@@ -320,8 +305,8 @@ def main(mode, config, use_bokeh=False):
         logger.info("Building sampling model")
         sampling_representation = encoder.apply(
             sampling_input, tensor.ones(sampling_input.shape))
-        topic_embedding=topical_transformer.apply(source_topical_word);
-        tw_representation=topical_transformer.look_up.apply(source_topical_word.T);
+        topic_embedding=topical_transformer.apply(source_topical_word) #mlp output
+        tw_representation=topical_transformer.look_up.apply(source_topical_word.T)
         content_embedding=sampling_representation[0,:,(sampling_representation.shape[2]/2):];
         generated = decoder.generate(sampling_input,sampling_representation, tw_representation,topical_embedding=topic_embedding,content_embedding=content_embedding);
 
@@ -354,12 +339,10 @@ def main(mode, config, use_bokeh=False):
             input_ = numpy.tile(seq, (config['beam_size'], 1))
 
             # draw sample, checking to ensure we don't get an empty string back
-            trans, costs, attendeds, weights = \
-                beam_search.search(
+            trans, costs, attendeds, weights = beam_search.search(
                     input_values={sampling_input: input_,source_topical_word:input_topical,tw_vocab_overlap:tw_vocab_overlap_matrix},
                     tw_vocab_overlap=tw_vocab_overlap_matrix,
-                    max_length=3*len(seq), eol_symbol=trg_eos_idx,
-                    ignore_first_eol=True)
+                    max_length=3*len(seq), eol_symbol=trg_eos_idx,ignore_first_eol=True)
 
             # normalize costs according to the sequence lengths
             if config['normalized_bleu']:

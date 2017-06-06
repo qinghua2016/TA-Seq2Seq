@@ -11,7 +11,8 @@ from six.moves import cPickle
 
 def _ensure_special_tokens(vocab, bos_idx=0, eos_idx=0, unk_idx=1):
     """Ensures special tokens exist in the dictionary."""
-
+    # for word in vocab:
+    #     vocab[word.decode('utf-8')]=vocab[word]
     # remove tokens if they exist in some other index
     tokens_to_remove = [k for k, v in vocab.items()
                         if v in [bos_idx, eos_idx, unk_idx]]
@@ -35,17 +36,17 @@ def _ensure_unk(vocab,unk_idx=1):
     vocab['<UNK>'] = unk_idx
     return vocab
 
-def _ensure_unk(vocab,unk_idx=1):
-    """Ensures special tokens exist in the dictionary."""
-
-    # remove tokens if they exist in some other index
-    tokens_to_remove = [k for k, v in vocab.items()
-                        if v in [unk_idx]]
-    for token in tokens_to_remove:
-        vocab.pop(token)
-    # put corresponding item
-    vocab['<UNK>'] = unk_idx
-    return vocab
+# def _ensure_unk(vocab,unk_idx=1):
+#     """Ensures special tokens exist in the dictionary."""
+#
+#     # remove tokens if they exist in some other index
+#     tokens_to_remove = [k for k, v in vocab.items()
+#                         if v in [unk_idx]]
+#     for token in tokens_to_remove:
+#         vocab.pop(token)
+#     # put corresponding item
+#     vocab['<UNK>'] = unk_idx
+#     return vocab
 
 def _length(sentence_pair):
     """Assumes target is the last element in the tuple."""
@@ -198,7 +199,13 @@ def get_tr_stream_with_topicalq(src_vocab, trg_vocab,topical_vocab, src_data, tr
     """Prepares the training data stream."""
 
     # Load dictionaries and ensure special tokens exist
+    src_vocab = '/home/qinghua/cwork/LightLDA/example/chatdata/model/model_chat/chat_voc.pkl'
+    trg_vocab = src_vocab
+    topical_vocab = '/home/qinghua/cwork/LightLDA/example/chatdata/model/model_chat_stop1/topic_vocab.pkl'
 
+    src_data = '/home/qinghua/data/chat_data/post_repos4_thulac'
+    trg_data = '/home/qinghua/data/chat_data/post_repos4_thulac'
+    topical_data = '/home/qinghua/data/chat_data/post_repos4_thulac'
     src_vocab = _ensure_special_tokens(
         src_vocab if isinstance(src_vocab, dict)
         else cPickle.load(open(src_vocab, 'rb')),
@@ -212,7 +219,7 @@ def get_tr_stream_with_topicalq(src_vocab, trg_vocab,topical_vocab, src_data, tr
     # Get text files from both source and target
     src_dataset = TextFile([src_data], src_vocab, None)
     trg_dataset = TextFile([trg_data], trg_vocab, None)
-    topical_dataset = TextFile([topical_data],topical_vocab,None,None,'10');
+    topical_dataset = TextFile([topical_data],topical_vocab,None,None,'10')
 
     # Merge them to get a source, target pair
     stream = Merge([src_dataset.get_example_stream(),
@@ -256,35 +263,44 @@ def get_tr_stream_with_topicalq(src_vocab, trg_vocab,topical_vocab, src_data, tr
 
 def get_tr_stream_with_topic_target(src_vocab, trg_vocab,topic_vocab_input,topic_vocab_output, src_data, trg_data,topical_data,
                   src_vocab_size=30000, trg_vocab_size=30000,trg_topic_vocab_size=2000,source_topic_vocab_size=2000, unk_id=1,
-                  seq_len=50, batch_size=80, sort_k_batches=12, **kwargs):
+                  seq_len=50, batch_size=80, sort_k_batches=1, **kwargs):
     """Prepares the training data stream."""
 
     # Load dictionaries and ensure special tokens exist
-
+    src_vocab = '/home/qinghua/cwork/LightLDA/example/chatdata/model/model_chat/chat_voc.pkl'
+    trg_vocab = src_vocab
+    topic_vocab_input = '/home/qinghua/cwork/LightLDA/example/chatdata/model/model_chat_stop1/topic_vocab.pkl'
+    topic_vocab_output = topic_vocab_input
+    src_data = '/home/qinghua/data/chat_data/test_src'
+    trg_data = '/home/qinghua/data/chat_data/test_tgt'
+    topical_data = '/home/qinghua/data/chat_data/test_tgt'
     src_vocab = _ensure_special_tokens(
         src_vocab if isinstance(src_vocab, dict)
         else cPickle.load(open(src_vocab, 'rb')),
         bos_idx=0, eos_idx=src_vocab_size - 1, unk_idx=unk_id)
+    trg_vocab_size=src_vocab_size
     trg_vocab = _ensure_special_tokens(
         trg_vocab if isinstance(trg_vocab, dict) else
         cPickle.load(open(trg_vocab, 'rb')),
         bos_idx=0, eos_idx=trg_vocab_size - 1, unk_idx=unk_id)
     topic_vocab_input=cPickle.load(open(topic_vocab_input,'rb'));
     topic_vocab_output=cPickle.load(open(topic_vocab_output, 'rb'));#already has <UNK> and </S> in it
-    topic_binary_vocab={};
+    topic_binary_vocab={}
     for k,v in topic_vocab_output.items():
         if k=='<UNK>':
-            topic_binary_vocab[k]=0;
+            topic_binary_vocab[k]=0
         else:
-            topic_binary_vocab[k]=1;
-
+            topic_binary_vocab[k]=1
 
     # Get text files from both source and target
     src_dataset = TextFile([src_data], src_vocab, None)
     trg_dataset = TextFile([trg_data], trg_vocab, None)
-    src_topic_input=TextFile([topical_data],topic_vocab_input,None,None,'rt')
-    trg_topic_dataset = TextFile([trg_data],topic_vocab_output,None);
-    trg_topic_binary_dataset= TextFile([trg_data],topic_binary_vocab,None);
+    src_topic_input=TextFile([topical_data],topic_vocab_input,None,None)#top
+    trg_topic_dataset = TextFile([trg_data],topic_vocab_output,None)
+    trg_topic_binary_dataset = TextFile([trg_data], topic_binary_vocab, None)
+    # src_topic_input = TextFile([topical_data], src_vocab, None, None)
+    # trg_topic_dataset = TextFile([trg_data], src_vocab, None)
+    # trg_topic_binary_dataset = TextFile([trg_data], src_vocab, None)
 
     # Merge them to get a source, target pair
     stream = Merge([src_dataset.get_example_stream(),
@@ -322,10 +338,15 @@ def get_tr_stream_with_topic_target(src_vocab, trg_vocab,topic_vocab_input,topic
     # Construct batches from the stream with specified batch size
     stream = Batch(
         stream, iteration_scheme=ConstantScheme(batch_size))
-
+    # mask_source=
+    mask_source=None
     # Pad sequences that are short
     masked_stream = PaddingWithEOS(
-        stream, [src_vocab_size - 1,trg_vocab_size - 1, source_topic_vocab_size-1,trg_topic_vocab_size - 1,trg_topic_vocab_size-1])
+        stream, [src_vocab_size - 1,trg_vocab_size - 1,
+                 source_topic_vocab_size-1,trg_topic_vocab_size - 1,trg_topic_vocab_size-1],
+        mask_sources=mask_source,mask_dtype="int64")
+    # masked_stream.sources.pop('target_binary_topic_mask')
+    # masked_stream.sources.pop('target_topic_mask')
 
     return masked_stream
 

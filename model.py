@@ -1,4 +1,6 @@
-﻿from theano import tensor
+﻿#! /usr/bin/env python2.7
+#coding=utf-8
+from theano import tensor
 from toolz import merge
 
 from blocks.bricks import (Tanh, Maxout, Linear, FeedforwardSequence,
@@ -102,13 +104,13 @@ class BidirectionalEncoder(Initializable):
         source_sentence = source_sentence.T
         source_sentence_mask = source_sentence_mask.T
 
-        embeddings = self.lookup.apply(source_sentence)
+        embeddings = self.lookup.apply(source_sentence)#get the embeding of the input
 
         representation = self.bidir.apply(
             merge(self.fwd_fork.apply(embeddings, as_dict=True),
-                  {'mask': source_sentence_mask}),
+                  {'mask': source_sentence_mask}),#forward rnn
             merge(self.back_fork.apply(embeddings, as_dict=True),
-                  {'mask': source_sentence_mask})
+                  {'mask': source_sentence_mask})#backward rnn
         )
         return representation
 
@@ -117,16 +119,16 @@ class topicalq_transformer(Initializable):
     def __init__(self, vocab_size, topical_embedding_dim, state_dim,word_num,batch_size,
                  **kwargs):
         super(topicalq_transformer, self).__init__(**kwargs)
-        self.vocab_size = vocab_size;
-        self.word_embedding_dim = topical_embedding_dim;
-        self.state_dim = state_dim;
-        self.word_num=word_num;
-        self.batch_size=batch_size;
-        self.look_up=LookupTable(name='topical_embeddings');
+        self.vocab_size = vocab_size#1735
+        self.word_embedding_dim = topical_embedding_dim#200
+        self.state_dim = state_dim
+        self.word_num=word_num#10
+        self.batch_size=batch_size
+        self.look_up=LookupTable(name='topical_embeddings')#word embedding
         self.transformer=MLP(activations=[Tanh()],
                                 dims=[self.word_embedding_dim*self.word_num, self.state_dim],
-                                name='topical_transformer');
-        self.children = [self.look_up,self.transformer];
+                                name='topical_transformer')#outputdim=self.state_dim
+        self.children = [self.look_up,self.transformer]
 
     def _push_allocation_config(self):
         self.look_up.length = self.vocab_size
@@ -138,12 +140,13 @@ class topicalq_transformer(Initializable):
                  outputs=['topical_embedding'])
     def apply(self, source_topical_word_sequence):
         # Time as first dimension
-        source_topical_word_sequence=source_topical_word_sequence.T;
-        word_topical_embeddings = self.look_up.apply(source_topical_word_sequence);
-        word_topical_embeddings=word_topical_embeddings.swapaxes(0,1);
+        source_topical_word_sequence = source_topical_word_sequence.T
+        word_topical_embeddings = self.look_up.apply(source_topical_word_sequence)
+        word_topical_embeddings=word_topical_embeddings.swapaxes(0,1)#将０，１维调换
         #requires testing
-        concatenated_topical_embeddings=tensor.reshape(word_topical_embeddings,[word_topical_embeddings.shape[0],word_topical_embeddings.shape[1]*word_topical_embeddings.shape[2]]);
-        topical_embedding=self.transformer.apply(concatenated_topical_embeddings);
+        concatenated_topical_embeddings=tensor.reshape(word_topical_embeddings,
+        [word_topical_embeddings.shape[0],word_topical_embeddings.shape[1]*word_topical_embeddings.shape[2]]);
+        topical_embedding=self.transformer.apply(concatenated_topical_embeddings)#输入mlp,得到输出维度为enc_nhids＝1000
         return topical_embedding
 
 class Decoder(Initializable):
@@ -159,7 +162,7 @@ class Decoder(Initializable):
                  theano_seed=None, **kwargs):
         super(Decoder, self).__init__(**kwargs)
         self.vocab_size = vocab_size
-        self.topicWord_size= topicWord_size
+        self.topicWord_size = topicWord_size
         self.embedding_dim = embedding_dim
         self.state_dim = state_dim
         self.representation_dim = representation_dim
@@ -181,7 +184,7 @@ class Decoder(Initializable):
             use_local_attention=use_local_attention,
             window_size=window_size,
             name="attention")
-
+        #
         self.topical_attention=SequenceContentAttention(
             state_names=self.transition.apply.states,
             attended_dim=topical_dim,
@@ -229,7 +232,7 @@ class Decoder(Initializable):
             attention=self.attention,
             topical_attention=self.topical_attention,
             q_dim=self.state_dim,
-            #q_name='topic_embedding',
+            q_name='topic_embedding',
             topical_name='topic_embedding',
             content_name='content_embedding',
             use_step_decay_cost=use_step_decay_cost,
@@ -247,7 +250,8 @@ class Decoder(Initializable):
                          'target_topic_sentence','target_topic_binary_sentence','topic_embedding','content_embedding'],
                  outputs=['cost'])
     def cost(self, representation, source_sentence_mask,tw_representation,tw_mask,
-             target_sentence, target_sentence_mask, target_topic_sentence,target_topic_binary_sentence,topic_embedding,content_embedding):
+             target_sentence, target_sentence_mask, target_topic_sentence,
+             target_topic_binary_sentence,topic_embedding,content_embedding):
 
         source_sentence_mask = source_sentence_mask.T
         target_sentence = target_sentence.T

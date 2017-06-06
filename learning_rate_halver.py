@@ -174,4 +174,4 @@ class OldModelRemover(SimpleExtension):
     def do(self, which_callback, *args):
         current_row = self.main_loop.log.current_row
         if BLEU in current_row or COST in current_row:
-            remove_old_models()
+            self.remove_old_models()

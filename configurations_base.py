@@ -5,14 +5,14 @@ def default():
 
     # model hyperparameters
     config['seq_len'] = 200
-    config['enc_nhids'] = 1000
-    config['dec_nhids'] = 1000
-    config['enc_embed'] = 620
-    config['dec_embed'] = 620
+    config['enc_nhids'] = 100
+    config['dec_nhids'] = 100
+    config['enc_embed'] = 100
+    config['dec_embed'] = 100
 
     # traning options
     config['batch_size'] = 80
-    config['sort_k_batches'] = 12
+    config['sort_k_batches'] = 1
     config['step_rule'] = 'AdaDelta'
     config['initial_learning_rate'] = 1.0
     config['learning_rate_decay'] = False
@@ -48,13 +48,13 @@ def default():
     # testing options
     config['beam_size'] = 12
     # model saving related
-    config['finish_after'] = 1000000
+    config['finish_after'] = 100
     config['reload'] = True
     config['save_freq'] = 500
     config['sampling_freq'] = 20
     config['hook_samples'] = 2
-    config['bleu_val_freq'] = 1000
-    config['val_burn_in'] = 20000
+    config['bleu_val_freq'] = 100
+    config['val_burn_in'] = 2000
 
     # afterprocess config
     config['translation_table'] = datadir + 'translation_table'
@@ -804,29 +804,29 @@ def topicAwareJPData():
 
     # model hyperparameters
     config['seq_len'] = 200
-    config['enc_nhids'] = 1000
-    config['dec_nhids'] = 1000
-    config['enc_embed'] = 620
-    config['dec_embed'] = 620
+    config['enc_nhids'] = 100
+    config['dec_nhids'] = 100
+    config['enc_embed'] = 100
+    config['dec_embed'] = 100
 
     # traning options
-    config['batch_size'] = 128
-    config['sort_k_batches'] = 12
+    config['batch_size'] = 12
+    config['sort_k_batches'] = 1
     config['step_rule'] = 'AdaDelta'
-    config['initial_learning_rate'] = 1.0
-    config['learning_rate_decay'] = False
+    config['initial_learning_rate'] = 1
+    config['learning_rate_decay'] = 0.95
     config['learning_rate_grow'] = False
     config['step_clipping'] = 1.
-    config['weight_scale'] = 0.01
+    config['weight_scale'] = 0.01#initialize weight parameters
     config['weight_noise_ff'] = False
     config['weight_noise_rec'] = False
     config['dropout'] = 0.5
 
     # data basics
     config['stream'] = 'stream'
-    datadir = 'D:\users\chxing\\aaai2017Exp\JPdata\\r50maxcount.q1min10max.2-20.1-20\\'
+    datadir = 'model/'
     config['datadir'] = datadir
-    config['saveto'] = datadir+'s2sa_topicAwareGeneration\\'
+    config['saveto'] = datadir
     config['validation_load']=datadir+'s2sa_topicAwareGeneration\\models_for_test\\'
     config['model_name'] = 's2sa_decoder_with_extra_class'
     # dictionary options
@@ -851,9 +851,9 @@ def topicAwareJPData():
     config['normalized_bleu'] = True
     config['beam_size'] = 12
     # model saving related
-    config['finish_after'] = 1000000
-    config['reload'] = True
-    config['save_freq'] = 500
+    config['finish_after'] = 100
+    config['reload'] = False
+    config['save_freq'] = 1
     config['sampling_freq'] = 20
     config['hook_samples'] = 2
     config['bleu_val_freq'] = 1000
@@ -890,14 +890,12 @@ def topicAwareJPData():
 
     #topical related features--------------------------------------------------------
     config['source_topic_vocab_size']=2990
-    config['topical_embedding_dim']=200
-    config['topical_word_num']=20
+    config['topical_embedding_dim']=100
+    config['topical_word_num']=3
     config['topical_embeddings']=datadir + 'topicSetting\inputTopicWord\\inputW.pkl';
     config['topic_vocab_input']=datadir + 'topicSetting\inputTopicWord\\inputTopicVocab.pkl'
     config['topical_data']= datadir + 'train.query.topic.input'
     config['topical_dev_set']= datadir+'dev.query.topic.input'
     #config['topical_test_set']= datadir+'test.query.topic.input'
-
-
 
     return config

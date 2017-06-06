@@ -227,7 +227,7 @@ class SequenceContentAttention(GenericSequenceAttention, Initializable):
         return self.attended_transformer.apply(attended)
 
     def get_dim(self, name):
-        if name in ['weighted_averages']:
+        if name in ['weighted_averages','topical_weighted_averages','topical_weights']:
             return self.attended_dim
         if name in ['weights']:
             return 0

@@ -257,14 +257,13 @@ class AttentionRecurrent(AbstractAttentionRecurrent, Initializable):
 
     """
     def __init__(self, transition, attention,topical_attention, distribute=None,topical_distribute=None,
-                 add_contexts=True,
-                 attended_name=None, attended_mask_name=None,topical_name=None,topical_attended_name=None,topical_attended_mask_name=None,content_name=None,
-                 **kwargs):
+                 add_contexts=True,attended_name=None, attended_mask_name=None,topical_name=None,
+                 topical_attended_name=None,topical_attended_mask_name=None,content_name=None,**kwargs):
         super(AttentionRecurrent, self).__init__(**kwargs)
         self._sequence_names = list(transition.apply.sequences)
         self._state_names = list(transition.apply.states)
         self._context_names = list(transition.apply.contexts)
-        self._topical_glimpse_names=['topical_weighted_averages','topical_weights'];
+        self._topical_glimpse_names=['topical_weighted_averages','topical_weights']
         if add_contexts:
             if not attended_name:
                 attended_name = 'attended'
@@ -319,17 +318,17 @@ class AttentionRecurrent(AbstractAttentionRecurrent, Initializable):
     def _push_allocation_config(self):
         self.attention.state_dims = self.transition.get_dims(
             self.attention.state_names)
-        self.attention.attended_dim = self.get_dim(self.attended_name);
-        self.topical_attention.state_dims=self.attention.state_dims;
-        self.topical_attention.attended_dim=self.get_dim(self.topical_attended_name);
+        self.attention.attended_dim = self.get_dim(self.attended_name);#2000
+        self.topical_attention.state_dims=self.attention.state_dims;#1000
+        self.topical_attention.attended_dim=self.get_dim(self.topical_attended_name);#200
         self.distribute.source_dim = self.attention.get_dim(
-            self.distribute.source_name)
+            self.distribute.source_name)#2000
         self.distribute.target_dims = self.transition.get_dims(
-            self.distribute.target_names)
+            self.distribute.target_names)#[1000,2000]
         self.topical_distribute.source_dim = self.topical_attention.get_dim(
-            self.distribute.source_name)           #here we use distribute's source_name because the topical_distribute's source name is not in the get_dim list of abstract_attention.
+            self.distribute.source_name)#200          #here we use distribute's source_name because the topical_distribute's source name is not in the get_dim list of abstract_attention.
         self.topical_distribute.target_dims = self.transition.get_dims(
-            self.topical_distribute.target_names)
+            self.topical_distribute.target_names)#[1000,2000]
 
     @application
     def take_glimpses(self, **kwargs):
@@ -357,14 +356,13 @@ class AttentionRecurrent(AbstractAttentionRecurrent, Initializable):
 
         result = self.attention.take_glimpses(
             kwargs.pop(self.attended_name),
-            kwargs.pop(self.topical_name),
+            # kwargs.pop(self.topical_name),
             kwargs.pop(self.preprocessed_attended_name, None),
-            kwargs.pop(self.attended_mask_name, None),
-            **dict_union(states, glimpses_needed))
+            kwargs.pop(self.attended_mask_name, None),**dict_union(states, glimpses_needed))
 
         topical_result=self.topical_attention.take_glimpses(
             kwargs.pop(self.topical_attended_name),
-            kwargs.pop(self.content_name),
+            # kwargs.pop(self.content_name),
             kwargs.pop(self.preprocessed_topical_attended_name,None),
             kwargs.pop(self.topical_attended_mask_name,None),
             **dict_union(states, glimpses_needed))

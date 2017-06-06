@@ -36,7 +36,8 @@ class SaveLoadUtils(object):
             param_values = {}
             for name, value in source.items():
                 if name != 'pkl':
-                    name_ = name.replace(BRICK_DELIMITER, '/')
+                    # name_ = name.replace(BRICK_DELIMITER, '/')
+                    name_=name.replace("-", "/")
                     if not name_.startswith('/'):
                         name_ = '/' + name_
                     param_values[name_] = value
@@ -51,7 +52,13 @@ class SaveLoadUtils(object):
     def set_model_parameters(self, model, params):
         params_this = model.get_parameter_dict()
         missing = set(params_this.keys()) - set(params.keys())
-        for pname in params_this.keys():
+        for pname in params_this:
+            # pname1=pname.split('/')
+            # pname2='/-'
+            # for name in pname1[:-1]:
+            #     if name!='':
+            #         pname2+=name+'-'
+            # pname2+=pname1[-1]
             if pname in params:
                 val = params[pname]
                 if params_this[pname].get_value().shape != val.shape:
@@ -168,7 +175,6 @@ class LoadNMT(TrainingExtension, SaveLoadUtils):
         param_prefix = 'params.npz'
         state_prefix = 'iterations_state.pkl'
         log_prefix = 'log'
-
         files = os.listdir(self.folder)
         params = [f for f in files if f.startswith(param_prefix)]
         states = [f for f in files if f.startswith(state_prefix)]

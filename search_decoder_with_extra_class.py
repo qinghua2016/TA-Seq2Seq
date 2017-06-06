@@ -13,7 +13,6 @@ from blocks.utils import unpack
 
 class BeamSearch(object):
     """Approximate search for the most likely sequence.
-
     Beam search is an approximate algorithm for finding :math:`y^* =
     argmax_y P(y|c)`, where :math:`y` is an output sequence, :math:`c` are
     the contexts, :math:`P` is the output distribution of a
@@ -22,31 +21,25 @@ class BeamSearch(object):
     sequence are called the beam. The sequences are replaced with their
     :math:`k` most probable continuations, and this is repeated until
     end-of-line symbol is met.
-
     The beam search compiles quite a few Theano functions under the hood.
     Normally those are compiled at the first :meth:`search` call, but
     you can also explicitly call :meth:`compile`.
-
     Parameters
     ----------
     samples : :class:`~theano.Variable`
         An output of a sampling computation graph built by
         :meth:`~blocks.brick.SequenceGenerator.generate`, the one
         corresponding to sampled sequences.
-
     See Also
     --------
     :class:`.SequenceGenerator`
-
     Notes
     -----
     Sequence generator should use an emitter which has `probs` method
     e.g. :class:`SoftmaxEmitter`.
-
     Does not support dummy contexts so far (all the contexts must be used
     in the `generate` method of the sequence generator for the current code
     to work).
-
     """
 
     def __init__(self, samples):
@@ -112,7 +105,7 @@ class BeamSearch(object):
             applications=[self.generator.sampleTarget.emit], roles=[OUTPUT])(
             self.inner_cg.variables)
         self.next_state_computer = function(
-            self.contexts + self.input_states + next_outputs,
+            self.contexts + self.input_states+next_outputs,
             next_states,
             on_unused_input='warn')
 
@@ -137,19 +130,16 @@ class BeamSearch(object):
 
     def compute_initial_states_and_contexts(self, inputs):
         """Computes initial states and contexts from inputs.
-
         Parameters
         ----------
         inputs : dict
             Dictionary of input arrays.
-
         Returns
         -------
         A tuple containing a {name: :class:`numpy.ndarray`} dictionary of
         contexts ordered like `self.context_names` and a
         {name: :class:`numpy.ndarray`} dictionary of states ordered like
         `self.state_names`.
-
         """
         outputs = self.initial_state_and_context_computer(
             *[inputs[var] for var in self.inputs])
@@ -160,19 +150,16 @@ class BeamSearch(object):
 
     def compute_logprobs(self, contexts, states):
         """Compute log probabilities of all possible outputs.
-
         Parameters
         ----------
         contexts : dict
             A {name: :class:`numpy.ndarray`} dictionary of contexts.
         states : dict
             A {name: :class:`numpy.ndarray`} dictionary of states.
-
         Returns
         -------
         A :class:`numpy.ndarray` of the (beam size, number of possible
         outputs) shape.
-
         """
         input_states = [states[name] for name in self.input_state_names]
         return self.logprobs_computer(*(list(contexts.values()) +
@@ -180,7 +167,6 @@ class BeamSearch(object):
 
     def compute_next_states(self, contexts, states, outputs):
         """Computes next states.
-
         Parameters
         ----------
         contexts : dict
@@ -189,11 +175,9 @@ class BeamSearch(object):
             A {name: :class:`numpy.ndarray`} dictionary of states.
         outputs : :class:`numpy.ndarray`
             A :class:`numpy.ndarray` of this step outputs.
-
         Returns
         -------
         A {name: numpy.array} dictionary of next states.
-
         """
         input_states = [states[name] for name in self.input_state_names]
         next_values = self.next_state_computer(*(list(contexts.values()) +
@@ -203,7 +187,6 @@ class BeamSearch(object):
     @staticmethod
     def _smallest(matrix, k, only_first_row=False):
         """Find k smallest elements of a matrix.
-
         Parameters
         ----------
         matrix : :class:`numpy.ndarray`
@@ -212,11 +195,9 @@ class BeamSearch(object):
             The number of smallest elements required.
         only_first_row : bool, optional
             Consider only elements of the first row.
-
         Returns
         -------
         Tuple of ((row numbers, column numbers), values).
-
         """
         if only_first_row:
             flatten = matrix[:1, :].flatten()
@@ -226,12 +207,10 @@ class BeamSearch(object):
         args = args[numpy.argsort(flatten[args])]
         return numpy.unravel_index(args, matrix.shape), flatten[args]
 
-    def search(self, input_values, tw_vocab_overlap,eol_symbol, max_length,
+    def search(self, input_values,eol_symbol, max_length,
                ignore_first_eol=False, as_arrays=False):
         """Performs beam search.
-
         If the beam search was not compiled, it also compiles it.
-
         Parameters
         ----------
         input_values : dict
@@ -255,7 +234,6 @@ class BeamSearch(object):
             If ``True``, the internal representation of search results
             is returned, that is a (matrix of outputs, mask,
             costs of all generated outputs) tuple.
-
         Returns
         -------
         outputs : list of lists of ints
@@ -264,7 +242,6 @@ class BeamSearch(object):
         costs : list of floats
             A list of the costs for the `outputs`, where cost is the
             negative log-likelihood.
-
         """
         #if not self.compiled:
         self.compile()
@@ -280,10 +257,8 @@ class BeamSearch(object):
         all_attended_source = numpy.zeros_like(all_outputs, dtype=int)
         """
         above arrays all have shape [time, beam_size] where time grows
-
         states[weights] has shape [beam_size, len]
         where len is the length of source sentence
-
         outputs has shape (beam_size, )
         """
 
@@ -322,7 +297,7 @@ class BeamSearch(object):
             all_weights = all_weights[:, indexes, :]
 
             # Record chosen output and compute new states
-            states.update(self.compute_next_states(contexts, states, outputs))
+            states.update(self.compute_next_states(contexts, states, outputs.astype('int16')))
 
             all_outputs = numpy.vstack([all_outputs, outputs[None, :]])
             all_costs = numpy.vstack([all_costs, chosen_costs[None, :]])

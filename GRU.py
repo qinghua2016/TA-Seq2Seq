@@ -10,7 +10,7 @@ from blocks.utils import (pack, shared_floatx_nans, shared_floatx_zeros,
 from blocks.bricks.parallel import Fork
 from blocks.bricks.recurrent import recurrent, BaseRecurrent
 
-
+#rnn+mlp
 class GRU(BaseRecurrent, Initializable):
     @lazy(allocation=['dim'])
     def __init__(self, dim, attended_dim,

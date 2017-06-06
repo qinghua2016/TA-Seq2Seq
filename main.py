@@ -1,3 +1,5 @@
+#! /usr/bin/env python2.7
+#coding=utf-8
 """Encoder-Decoder with search for machine translation.
 
 In this demo, encoder-decoder architecture with attention mechanism is used for
@@ -32,7 +34,7 @@ parser.add_argument(
     "--bokeh",  default=False, action="store_true",
     help="Use bokeh server for plotting")
 parser.add_argument(
-    "--mode", choices=["train", "translate"], default='translate',
+    "--mode", choices=["train", "translate"], default='train',
     help="The mode to run. In the `train` mode a model is trained."
          " In the `translate` mode a trained model is used to translate"
          " an input file and generates tokenized translation.")
